@@ -77,31 +77,32 @@ updateMatch = \{text, matchedChars}, char ->
         then NotFound {text, matchedChars: 1}
         else NotFound {text, matchedChars: 0}
 
-updateMatches : Result Nat (List PartialMatch), Str -> [Break (Result Nat (List PartialMatch)), Continue (Result Nat (List PartialMatch))]
-updateMatches = \maybePartialMatches, char ->
+updateMatches : List PartialMatch, Str -> Result (List PartialMatch) Nat
+updateMatches = \partialMatches, char ->
     when Str.toNat char is
-        Ok nat -> Break (Ok nat)
+        Ok nat -> Err nat
         Err _ ->
-            when maybePartialMatches is
-                Ok nat -> Break (Ok nat)
+            updatedMatches = List.map partialMatches (\pm -> updateMatch pm char)
 
-                Err partialMatches ->
-                    updatedMatches = List.map partialMatches (\pm -> updateMatch pm char)
-
-                    when findFirst updatedMatches is
-                        Found nat -> Break (matchToNat nat |> Result.mapErr \_ -> partialMatches)
-                        NotFound matches -> Continue (Err matches)
+            when findFirst updatedMatches is
+                Found match -> when matchToNat match is
+                    Ok nat -> Err nat
+                    Err InvalidDigit -> Ok partialMatches
+                NotFound matches -> Ok matches
 
 findFirstDigit : List Str -> Result Nat [NotFound]
 findFirstDigit = \chars ->
-    List.walkUntil chars (Err initialPartialMatches) updateMatches
-        |> Result.mapErr (\_ -> NotFound)
+    when List.walkTry chars initialPartialMatches updateMatches is
+        Ok _ -> Err NotFound
+        Err nat -> Ok nat
 
 findLastDigit : List Str -> Result Nat [NotFound]
 findLastDigit = \chars ->
     invertedPartialMatches = List.map initialPartialMatches (\{text, matchedChars} -> {matchedChars, text: List.reverse text})
-    List.walkBackwardsUntil chars (Err invertedPartialMatches) updateMatches
-        |> Result.mapErr (\_ -> NotFound)
+    invertedChars = List.reverse chars
+    when List.walkTry invertedChars invertedPartialMatches updateMatches is
+        Ok _ -> Err NotFound
+        Err nat -> Ok nat
 
 lineToCalibration : Str -> Result Nat [NotFound]
 lineToCalibration = \line ->
