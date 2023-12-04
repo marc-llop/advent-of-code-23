@@ -1,6 +1,6 @@
 app "hello"
     packages { cli: "https://github.com/roc-lang/basic-cli/releases/download/0.5.0/Cufzl36_SnJ4QbOoEmiJ5dIpUxBvdB3NEySvuH82Wio.tar.br" }
-    imports [cli.Stdout, "input.txt" as input : Str]
+    imports [cli.Stdout, "test.txt" as input : Str]
     provides [main] to cli
 
 parseNumberList : Str -> List Nat
@@ -48,10 +48,9 @@ countCards = \copiesPerCard, winners, cardIndex ->
     end = start + winners
     copiesOfThisCard = List.get copiesPerCard cardIndex
         |> Result.withDefault 0
-    List.mapWithIndex copiesPerCard \copies, index ->
-        if index >= start && index < end
-            then copies + copiesOfThisCard
-            else copies
+    indexesToModify = List.range {start: At start, end: Before end}
+    List.walk indexesToModify copiesPerCard \newCopies, index ->
+        List.update newCopies index \copies -> copies + copiesOfThisCard
 
 main =
     cards = Str.split (Str.trim input) "\n"
