@@ -1,6 +1,6 @@
 app "hello"
     packages { cli: "https://github.com/roc-lang/basic-cli/releases/download/0.5.0/Cufzl36_SnJ4QbOoEmiJ5dIpUxBvdB3NEySvuH82Wio.tar.br" }
-    imports [cli.Stdout, cli.Task, "input.txt" as input : Str]
+    imports [cli.Stdout, "input.txt" as input : Str]
     provides [main] to cli
 
 Point : {x: I16, y: I16}
@@ -88,30 +88,6 @@ parseChar = \{parsedChars, numbers, possibleGears, currentPoint, parsedNumber}, 
                 parsedNumber: [],
             }
 
-# expect parseChar {
-#         [Digit 3, Digit 5],
-#         [],
-#         {x:2, y:2},
-#         [Digit 3, Digit 5]
-#     ) "9" == (
-#         [Digit 3, Digit 5, Digit 9],
-#         [],
-#         {x:3, y:2},
-#         [Digit 3, Digit 5, Digit 9]
-#     )
-
-# expect parseChar (
-#         [Digit 3, Digit 5],
-#         [],
-#         {x:2, y:2},
-#         [Digit 3, Digit 5]
-#     ) "." == (
-#         [Digit 3, Digit 5, Nothing],
-#         [{value: 35, startPos: {x: 0, y: 2}, endPos: {x: 2, y: 2}}],
-#         {x: 3, y: 2},
-#         []
-#     )
-
 parseLine : (List Number, List Point, Matrix, Point), Str -> (List Number, List Point, Matrix, Point)
 parseLine = \(numbers, possibleGears, matrix, point), text ->
     graphemes = Str.graphemes text
@@ -137,20 +113,6 @@ intToNat = \i ->
     if i < 0
         then 0
         else Num.toNat i
-
-matrixGet : Matrix, Point -> Result Char [OutOfBoundsY, OutOfBoundsX]
-matrixGet = \matrix, {x, y} ->
-    lres = List.get matrix (intToNat y)
-    Result.try lres (\line ->
-        List.get line (intToNat x) |> Result.mapErr \_ -> OutOfBoundsX)
-        |> Result.mapErr \_ -> OutOfBoundsY
-
-isSymbol : Char -> Bool
-isSymbol = \char ->
-    when char is
-        Symbol _ -> Bool.true
-        Star -> Bool.true
-        _ -> Bool.false
 
 cartesianProduct : List a, List b -> List (a, b)
 cartesianProduct = \xs, ys ->
@@ -180,75 +142,8 @@ numbersInPossibleGear = \allNumbers, point ->
         [a, b] -> Ok (a.value, b.value)
         _ -> Err NotAGear
 
-isPartOfEngine : Number, Matrix -> Bool
-isPartOfEngine = \{startPos, endPos, value}, matrix ->
-    isStartX = startPos.x == 0
-    isStartY = startPos.y == 0
-    xStart = if isStartX then 0 else startPos.x - 1 |> intToNat
-    yStart = if isStartY then 0 else startPos.y - 1 |> intToNat
-    xLength = endPos.x - startPos.x + (if isStartX then 2 else 3) |> intToNat
-    yLength = endPos.y - startPos.y + (if isStartY then 2 else 3) |> intToNat
-
-    submatrix = List.sublist matrix {start: yStart, len: yLength}
-        |> List.map \line -> List.sublist line {start: xStart, len: xLength}
-        
-    matrixAny submatrix isSymbol
-
-matrixMap : List (List a), (a -> b) -> List (List b)
-matrixMap = \matrix, fn ->
-    List.map matrix \line ->
-        List.map line fn
-
-matrixAny : List (List a), (a -> Bool) -> Bool
-matrixAny = \matrix, fn ->
-    List.any matrix \line ->
-        List.any line fn
-
-matrixAll : List (List a), (a -> Bool) -> Bool
-matrixAll = \matrix, fn ->
-    List.all matrix \line ->
-        List.all line fn
-
-printMatrix : List (List Str) -> Str
-printMatrix = \matrix ->
-    List.map matrix (\line -> Str.joinWith line " ")
-        |> Str.joinWith "\n"
-
-not : (a -> Bool) -> (a -> Bool)
-not = \fn ->
-    \a -> !(fn a)
-
-checkBug : Number, Matrix -> Str
-checkBug = \{startPos, endPos, value}, matrix ->
-    isStartX = startPos.x == 0
-    isStartY = startPos.y == 0
-    xStart = if isStartX then 0 else startPos.x - 1 |> intToNat
-    yStart = if isStartY then 0 else startPos.y - 1 |> intToNat
-    xLength = endPos.x - startPos.x + (if isStartX then 2 else 3) |> intToNat
-    yLength = endPos.y - startPos.y + (if isStartY then 2 else 3) |> intToNat
-    submatrix = List.sublist matrix {start: yStart, len: yLength}
-        |> List.map \line -> List.sublist line {start: xStart, len: xLength}
-    submatrixC = matrixMap submatrix charToStr
-
-    if (matrixAll submatrix (not isSymbol))
-        then "\(printMatrix submatrixC)\n\(Num.toStr value)\n"
-        else "\n"
-
-charToStr : Char -> Str
-charToStr = \c ->
-    when c is
-        Symbol x -> "\(x)"
-        Star -> "*"
-        Digit n -> "\(Num.toStr n)"
-        Nothing -> "."
-
-sequence : List (Task.Task {} b) -> Task.Task {} b
-sequence = \tasks ->
-    List.walk tasks (Task.ok {}) \fullTask, task -> 
-        Task.await fullTask (\_ -> task)
-
 main =
-    {matrix, numbers, possibleGears} = parseEngine input
+    {numbers, possibleGears} = parseEngine input
     gears = List.keepOks possibleGears \gear -> numbersInPossibleGear numbers gear
     sum = gears
         |> List.map (\(a, b) -> a * b)
