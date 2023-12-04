@@ -102,8 +102,7 @@ intToNat = \i ->
 matrixGet : Matrix, Point -> Result Char [OutOfBoundsY, OutOfBoundsX]
 matrixGet = \matrix, {x, y} ->
     lres = List.get matrix (intToNat y)
-    Result.try lres (\line -> 
-        # dbg line
+    Result.try lres (\line ->
         List.get line (intToNat x) |> Result.mapErr \_ -> OutOfBoundsX)
         |> Result.mapErr \_ -> OutOfBoundsY
 
@@ -126,14 +125,10 @@ isPartOfEngine = \{startPos, endPos, value}, matrix ->
     yStart = if isStartY then 0 else startPos.y - 1 |> intToNat
     xLength = endPos.x - startPos.x + (if isStartX then 2 else 3) |> intToNat
     yLength = endPos.y - startPos.y + (if isStartY then 2 else 3) |> intToNat
+
     submatrix = List.sublist matrix {start: yStart, len: yLength}
         |> List.map \line -> List.sublist line {start: xStart, len: xLength}
-    # xRange = List.range {start: At xStart, end: At (endPos.x + 1)}
-    # yRange = List.range {start: At yStart, end: At (endPos.y + 1)}
-    # pointsToCheck = cartesianProduct xRange yRange
-    # charsToCheck = List.keepOks pointsToCheck (\(x, y) -> matrixGet matrix {x, y})
-    # List.any charsToCheck isSymbol
-
+        
     matrixAny submatrix isSymbol
 
 matrixMap : List (List a), (a -> b) -> List (List b)
@@ -175,18 +170,6 @@ checkBug = \{startPos, endPos, value}, matrix ->
     if (matrixAll submatrix (not isSymbol))
         then "\(printMatrix submatrixC)\n\(Num.toStr value)\n"
         else "\n"
-
-    # dbg {startPos, endPos, value}
-    
-    # xRange = List.range {start: At xStart, end: At (endPos.x + 1)}
-    # yRange = List.range {start: At yStart, end: At (endPos.y + 1)}
-    # pointsToCheck = cartesianProduct xRange yRange
-    # dbg pointsToCheck
-    # chars = List.keepOks pointsToCheck (\(x, y) -> matrixGet matrix {x, y} |> Result.map \v -> (x, y, v))
-    # dbg List.sublist chars {start: 0, len: 5}
-    # dbg List.sublist chars {start: 5, len: 5}
-    # dbg List.sublist chars {start: 10, len: 5}
-    # chars |> List.map \(_, _, a) -> a
 
 charToStr : Char -> Str
 charToStr = \c ->
