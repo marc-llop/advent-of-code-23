@@ -1,35 +1,7 @@
 app "hello"
     packages { cli: "https://github.com/roc-lang/basic-cli/releases/download/0.5.0/Cufzl36_SnJ4QbOoEmiJ5dIpUxBvdB3NEySvuH82Wio.tar.br" }
-    imports [cli.Stdout, "input.txt" as input : Str]
+    imports [cli.Stdout, "input.txt" as input : Str, HigherOrder.{chain, identity, cond}]
     provides [main] to cli
-
-identity : a -> a
-identity = \a -> a
-
-# log : a -> a
-# log = \a ->
-#     dbg a
-#     a
-
-cond : (a -> Bool), (a -> b), (a -> b) -> (a -> b)
-cond = \predicate, thenFn, elseFn ->
-    \a ->
-        if predicate a
-            then thenFn a
-            else elseFn a
-
-# apply : (a -> b), a -> b
-# apply = \fn, a -> fn a
-
-compose : (a -> b), (b -> c) -> (a -> c)
-compose = \fnA, fnB ->
-    \a -> fnB (fnA a)
-
-chain : List (a -> a) -> (a -> a)
-chain = \fns ->
-    List.walk fns identity compose
-
-# ----- APP CODE -----
 
 Range : (Nat, Nat, Nat)
 
@@ -113,7 +85,6 @@ expect (categoryMapping exampleCategory) 13 == 13
 expect (categoryMapping exampleCategory) 99 == 51
 
 
-
 main =
     result = 
         (seeds, categories) <- parseAlmanac input |> Result.map
@@ -127,6 +98,3 @@ main =
     when result is
         Ok s -> Stdout.line s
         Err _ -> Stdout.line "Error"
-    # lines = Str.split input "\n"
-    # firstLine = List.get lines 0 |> Result.withDefault ""
-    # Stdout.line firstLine
