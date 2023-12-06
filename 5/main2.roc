@@ -3,9 +3,11 @@ app "hello"
     imports [cli.Stdout, "input.txt" as input : Str, HigherOrder.{chain, identity, cond}]
     provides [main] to cli
 
-Range : (Nat, Nat, Nat)
+MapCase : (Nat, Nat, Nat)
 
 Mapping : Nat -> Nat
+
+Range : (Nat, Nat)
 
 example =
     """
@@ -20,7 +22,12 @@ example =
 # expected result ranges: (40, 10), (52, 10), (92, 8), (50, 2), (100, 4)
 # ranges after collapsing: (40, 10), (50, 12), (92, 12)
 
-parseSeeds : Str -> Result (List Nat) [OutOfBounds]
+listToRange = \list ->
+    when list is
+        [a, b] -> Ok (a, b)
+        _ -> Err [InvalidRange]
+
+parseSeeds : Str -> Result (List Range) [OutOfBounds]
 parseSeeds = \text ->
     seedNumbers <- Str.split text "seeds: "
         |> List.get 1
@@ -28,35 +35,37 @@ parseSeeds = \text ->
         
     Str.split seedNumbers " "
         |> List.keepOks Str.toNat
+        |> List.chunksOf 2
+        |> List.keepOks listToRange
 
-parseRange : Str -> Result Range [InvalidNumStr]
-parseRange = \text ->
+parseMapCase : Str -> Result MapCase [InvalidNumStr]
+parseMapCase = \text ->
     numbers = Str.split text " "
         |> List.keepOks Str.toNat
         when numbers is
             [a, b, c] -> Ok (a, b, c)
             _ -> Err InvalidNumStr
 
-parseCategory : Str -> Result (List Range) [InvalidCategory]
+parseCategory : Str -> Result (List MapCase) [InvalidCategory]
 parseCategory = \text ->
-    categoryRanges <- Str.split text "map:\n"
+    categoryMapCases <- Str.split text "map:\n"
         |> List.get 1
         |> Result.mapErr \_ -> InvalidCategory
         |> Result.map
     
-    Str.split categoryRanges "\n"
-        |> List.keepOks parseRange
+    Str.split categoryMapCases "\n"
+        |> List.keepOks parseMapCase
 
-parseAlmanac : Str -> Result (List Nat, List (List Range)) [ListWasEmpty, OutOfBounds]
+parseAlmanac : Str -> Result (List Range, List (List MapCase)) [ListWasEmpty, OutOfBounds]
 parseAlmanac = \text ->
     textParts = Str.split (Str.trim text) "\n\n"
     seedsText <- List.first textParts |> Result.try
-    seeds <- parseSeeds seedsText |> Result.map
+    seedRanges <- parseSeeds seedsText |> Result.map
     categoriesTexts = List.dropFirst textParts 1
     categories = List.keepOks categoriesTexts parseCategory
-    (seeds, categories)
+    (seedRanges, categories)
 
-isInRange : Range -> (Nat -> Bool)
+isInRange : MapCase -> (Nat -> Bool)
 isInRange = \(_, sourceRangeStart, rangeLength) ->
     \ object ->
         object >= sourceRangeStart && object < (sourceRangeStart + rangeLength)
@@ -66,7 +75,7 @@ safeToNat = \int ->
     Num.max 0 int
         |> Num.toNat
 
-map : Range -> Mapping
+map : MapCase -> Mapping
 map = \(destinationRangeStart, sourceRangeStart, _) ->
     iDestinationRangeStart = Num.toI64 destinationRangeStart
     iSourceRangeStart = Num.toI64 sourceRangeStart
@@ -76,15 +85,15 @@ map = \(destinationRangeStart, sourceRangeStart, _) ->
         (Num.toI64 object) + difference
             |> safeToNat
 
-rangeMapping : Mapping, Range -> Mapping
-rangeMapping = \elseMap, range ->
-    thenMap = map range
-    pred = isInRange range
+composeMapping : Mapping, MapCase -> Mapping
+composeMapping = \elseMap, mapCase ->
+    thenMap = map mapCase
+    pred = isInRange mapCase
     cond pred thenMap elseMap
 
-categoryMapping : List Range -> Mapping
-categoryMapping = \ranges ->
-    List.walk ranges identity rangeMapping
+categoryMapping : List MapCase -> Mapping
+categoryMapping = \mapCases ->
+    List.walk mapCases identity composeMapping
 
 exampleCategory = [
     (50, 98, 2),
@@ -100,14 +109,16 @@ expect (categoryMapping exampleCategory) 99 == 51
 
 main =
     result = 
-        (seeds, categories) <- parseAlmanac input |> Result.map
-        mappings = List.map categories categoryMapping
-        seedToLocation = chain mappings
-        locations = List.map seeds \seed -> seedToLocation seed
-        List.min locations
-            |> Result.withDefault 0
-            |> Num.toStr
+        (seedRanges, categories) <- parseAlmanac input |> Result.map
+        dbg seedRanges
+        Ok (seedRanges, categories)
+        # mappings = List.map categories categoryMapping
+        # seedToLocation = chain mappings
+        # locations = List.map seeds \seed -> seedToLocation seed
+        # List.min locations
+        #     |> Result.withDefault 0
+        #     |> Num.toStr
 
     when result is
-        Ok s -> Stdout.line s
+        Ok s -> Stdout.line "hi"
         Err _ -> Stdout.line "Error"
