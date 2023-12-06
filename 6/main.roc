@@ -39,16 +39,9 @@ differentWaysToWin : Race -> Nat
 differentWaysToWin = \race ->
     (findLast race) - (findFirst race)
 
-# Time:        44     70     70     80
-# Distance:   283   1134   1134   1491
+# Time:        44707080
+# Distance:   283113411341491
 
 main =
-    races = [
-        {maxTime: 44, record: 283},
-        {maxTime: 70, record: 1134},
-        {maxTime: 70, record: 1134},
-        {maxTime: 80, record: 1491},
-    ]
-    summary = List.map races differentWaysToWin
-        |> List.product
-    Stdout.line (Num.toStr summary)
+    result = differentWaysToWin {maxTime: 44707080, record: 283113411341491}
+    Stdout.line (Num.toStr result)
