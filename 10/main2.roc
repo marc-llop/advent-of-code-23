@@ -9,6 +9,68 @@ Point : {x: Nat, y: Nat}
 
 Matrix a : List (List a)
 
+ContainmentStateMachine : [Outside, Inside, BottomCurve, TopCurve]
+
+## Counts tiles inside the loop in a horizontal search by using a state machine that 
+## follows the following patterns:
+##  I | O
+##  O | I
+##
+##  I ┌---┘ O  BottomCurve
+##  I ┌---┐ I  BottomCurve
+##  I └---┐ O  TopCurve
+##  I └---┘ I  TopCurve
+##
+##  O ┌---┘ I  TopCurve
+##  O ┌---┐ O  TopCurve
+##  O └---┐ I  BottomCurve
+##  O └---┘ O  BottomCurve
+##
+## Note this only works with a precleaned matrix: Pipes that do not belong to the loop should
+## have been replaced with Nothing ('.'), and starting pipe ('S') has been replaced with their
+## appropriate type.
+countContainedTiles : (Nat, ContainmentStateMachine), Pipe -> (Nat, ContainmentStateMachine)
+countContainedTiles = \(containedTiles, state), pipe ->
+    newContainedTiles = if state == Inside && pipe == Nothing
+        then containedTiles + 1
+        else containedTiles
+    newState = when state is
+        Inside -> when pipe is
+            Vertical -> Outside
+            BottomRight -> BottomCurve
+            TopRight -> TopCurve
+            _ -> Inside
+        Outside -> when pipe is
+            Vertical -> Inside
+            BottomRight -> TopCurve
+            TopRight -> BottomCurve
+            _ -> Outside
+        BottomCurve -> when pipe is
+            BottomLeft -> Inside
+            TopLeft -> Outside
+            _ -> BottomCurve
+        TopCurve -> when pipe is
+            BottomLeft -> Outside
+            TopLeft -> Inside
+            _ -> TopCurve
+    (newContainedTiles, newState)
+
+containedTilesInLine : Nat, List Pipe -> Nat
+containedTilesInLine = \containedTiles, line ->
+    (newContainedTiles, _) = List.walk line (containedTiles, Outside) countContainedTiles
+    newContainedTiles
+
+expect containedTilesInLine 0 (lineToPipeList "...F----J..") == 2
+expect containedTilesInLine 0 (lineToPipeList "...F----7..") == 0
+expect containedTilesInLine 0 (lineToPipeList "...L--J....") == 0
+expect containedTilesInLine 0 (lineToPipeList "...|....|..") == 4
+expect containedTilesInLine 0 (lineToPipeList "....||.....") == 0
+expect containedTilesInLine 0 (lineToPipeList ".FJ.||..L7.") == 3
+
+containedTilesInMatrix : Matrix Pipe -> Nat
+containedTilesInMatrix = \matrix ->
+    List.walk matrix 0 containedTilesInLine
+
 graphemeToPipe : Str -> Pipe
 graphemeToPipe = \text ->
     when text is
@@ -176,11 +238,15 @@ main =
     pointsInPath = Result.withDefault maybePath []
     cleanMatrix = matrixMapWithIndex matrix \pipe, point -> 
         if List.contains pointsInPath point
-            then pipe
+            then if pipe == Start
+                then BottomLeft # Hardcoded replacement for our specific input.
+                else pipe
             else Nothing
 
-    cleanStrMatrix = matrixMap cleanMatrix pipeToStr
-    Stdout.line (matrixToStr cleanStrMatrix)
+    insideTiles = containedTilesInMatrix cleanMatrix
+
+    # cleanStrMatrix = matrixMap cleanMatrix pipeToStr
+    # Stdout.line (matrixToStr cleanStrMatrix)
 
     # farthestPoint = Result.withDefault maybeFarthestPoint 0
-    # Stdout.line (Num.toStr farthestPoint)
+    Stdout.line (Num.toStr insideTiles)
