@@ -9,6 +9,12 @@ interface Matrix
         mapWithIndex,
         toStr,
         cardinalAdjacentPoints,
+        manhattanDistance,
+        cartesianProduct,
+        walkColumn,
+        getColumn,
+        allColumn,
+        anyColumn,
     ]
     imports []
 
@@ -78,3 +84,32 @@ cardinalAdjacentPoints = \matrix, {x, y} ->
         then Ok {x: x + 1, y}
         else Err OutOfBounds
     {top, bottom, left, right}
+
+manhattanDistance : Point, Point -> Nat
+manhattanDistance = \a, b ->
+    (Num.absDiff a.x b.x) + (Num.absDiff a.y b.y)
+
+cartesianProduct : List a, List b -> List (a, b)
+cartesianProduct = \xs, ys ->
+    List.joinMap xs \x ->
+        List.map ys \y -> (x, y)
+
+walkColumn : Matrix elem, Nat, state, (state, elem -> state) -> Result state [OutOfBounds]
+walkColumn = \matrix, column, state, fn ->
+    List.walk matrix (Ok state) \accResult, row ->
+        elem <- List.get row column |> Result.try
+        Result.map accResult \acc -> (fn acc elem)
+
+getColumn : Matrix elem, Nat -> Result (List elem) [OutOfBounds]
+getColumn = \matrix, columnIndex ->
+    walkColumn matrix columnIndex [] \column, elem -> List.append column elem
+
+allColumn : Matrix elem, Nat, (elem -> Bool) -> Bool
+allColumn = \matrix, column, predicate ->
+    walkColumn matrix column Bool.false (\acc, elem -> acc && predicate elem)
+        |> Result.withDefault Bool.false
+
+anyColumn : Matrix elem, Nat, (elem -> Bool) -> Bool
+anyColumn = \matrix, column, predicate ->
+    walkColumn matrix column Bool.false (\acc, elem -> acc || predicate elem)
+        |> Result.withDefault Bool.false
