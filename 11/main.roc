@@ -37,8 +37,8 @@ correctExpansion = \galaxies ->
 
     List.map galaxies \{x, y} ->
         {
-            x: x + (emptyOnesBefore x emptyColumns),
-            y: y + (emptyOnesBefore y emptyRows),
+            x: x + (emptyOnesBefore x emptyColumns) * 999999,
+            y: y + (emptyOnesBefore y emptyRows) * 999999,
         }
 
 uniquePairs : List a -> List (a, a)
