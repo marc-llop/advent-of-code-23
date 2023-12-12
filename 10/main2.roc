@@ -100,7 +100,7 @@ RelativePosition : [Top, Bottom, Left, Right]
 
 Relative a : {position: RelativePosition, value: a}
 
-MaybeRelativePoint : Result (Relative Point) [CulDeSac]
+MaybeRelativePoint : Result (Relative Point) [OutOfBounds]
 
 nextPoints : Matrix a, Point ->
     {
@@ -109,24 +109,18 @@ nextPoints : Matrix a, Point ->
         goLeft: MaybeRelativePoint,
         goRight: MaybeRelativePoint,
     }
-nextPoints = \matrix, {x, y} ->
-    matrixLength = Matrix.len matrix
-    matrixLast = {x: matrixLength.x - 1, y: matrixLength.y - 1}
-    goTop = if y > 0 
-        then Ok {position: Top, value: {x, y: y - 1}}
-        else Err CulDeSac
-    goBottom = if y < matrixLast.y
-        then Ok {position: Bottom, value: {x, y: y + 1}}
-        else Err CulDeSac
-    goLeft = if x > 0 
-        then Ok {position: Left, value: {x: x - 1, y}}
-        else Err CulDeSac
-    goRight = if x < matrixLast.x 
-        then Ok {position: Right, value: {x: x + 1, y}}
-        else Err CulDeSac
-    {goTop, goBottom, goLeft, goRight}
+nextPoints = \matrix, point ->
+    toRelativePoint = \position -> \adjacent ->
+        {position, value: adjacent}
+    adjacents = Matrix.cardinalAdjacentPoints matrix point
+    {
+        goTop: Result.map adjacents.top (toRelativePoint Top),
+        goBottom: Result.map adjacents.bottom (toRelativePoint Bottom),
+        goLeft: Result.map adjacents.left (toRelativePoint Left),
+        goRight: Result.map adjacents.right (toRelativePoint Right),
+    }
 
-nextRelativePoint : Matrix Pipe, Relative Point, Pipe -> Result (Relative Point) [CulDeSac]
+nextRelativePoint : Matrix Pipe, Relative Point, Pipe -> Result (Relative Point) [OutOfBounds]
 nextRelativePoint = \matrix, {position, value}, pipe ->
     {goTop, goBottom, goLeft, goRight} = nextPoints matrix value
     when (position, pipe) is
@@ -142,12 +136,11 @@ nextRelativePoint = \matrix, {position, value}, pipe ->
         (Right, Horizontal) -> goRight
         (Right, BottomLeft) -> goBottom
         (Right, TopLeft) -> goTop
-        _ -> Err CulDeSac
+        _ -> Err OutOfBounds
 
-nextPipe : Matrix Pipe, Relative Point -> Result (Relative Point) [CulDeSac]
+nextPipe : Matrix Pipe, Relative Point -> Result (Relative Point) [OutOfBounds]
 nextPipe = \matrix, current ->
     Matrix.get matrix current.value
-        |> Result.mapErr (\_ -> CulDeSac)
         |> Result.try \currentPipe ->
             nextRelativePoint matrix current currentPipe
     
