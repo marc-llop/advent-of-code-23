@@ -6,6 +6,7 @@ interface HigherOrder
         apply,
         compose,
         chain,
+        equals,
     ]
     imports []
 
@@ -35,3 +36,6 @@ compose = \fnA, fnB ->
 chain : List (a -> a) -> (a -> a)
 chain = \fns ->
     List.walk fns identity compose
+
+equals : a -> (a -> Bool) where a implements Eq
+equals = \a -> \b -> a == b

@@ -1,13 +1,9 @@
 app "hello"
     packages { cli: "https://github.com/roc-lang/basic-cli/releases/download/0.5.0/Cufzl36_SnJ4QbOoEmiJ5dIpUxBvdB3NEySvuH82Wio.tar.br" }
-    imports [cli.Stdout, "input.txt" as input : Str]
+    imports [cli.Stdout, "input.txt" as input : Str, Matrix.{Matrix, Point}]
     provides [main] to cli
 
 Pipe : [Vertical, Horizontal, TopLeft, TopRight, BottomLeft, BottomRight, Start, Nothing]
-
-Point : {x: Nat, y: Nat}
-
-Matrix a : List (List a)
 
 ContainmentStateMachine : [Outside, Inside, BottomCurve, TopCurve]
 
@@ -100,46 +96,6 @@ lineToPipeList = \text ->
     Str.graphemes text
         |> List.map graphemeToPipe
 
-matrixFindFirstIndex : Matrix elem, (elem -> Bool) -> Result Point [NotFound]
-matrixFindFirstIndex = \matrix, predicate ->
-    List.walkWithIndex matrix (Err NotFound) \found, line, y ->
-        if found != Err NotFound
-            then found
-            else List.findFirstIndex line predicate
-                |> Result.map \x -> {x, y}
-
-matrixGet : Matrix a, Point -> Result a [OutOfBoundsY, OutOfBoundsX]
-matrixGet = \matrix, {x, y} ->
-    lres = List.get matrix y
-    Result.try lres (\line ->
-        List.get line x |> Result.mapErr \_ -> OutOfBoundsX)
-        |> Result.mapErr \_ -> OutOfBoundsY
-
-matrixLen : Matrix a -> Point
-matrixLen = \matrix ->
-    when matrix is
-        [] -> {x: 0, y: 0}
-        [line, ..] -> {x: List.len line, y: List.len matrix}
-
-matrixMap : Matrix a, (a -> b) -> Matrix b
-matrixMap = \matrix, fn ->
-    List.map matrix \line ->
-        List.map line fn
-
-matrixMapWithIndex : Matrix a, (a, Point -> b) -> Matrix b
-matrixMapWithIndex = \matrix, fn ->
-    List.mapWithIndex matrix \line, y ->
-        List.mapWithIndex line \elem, x ->
-            fn elem {x, y}
-
-matrixToStr : Matrix Str -> Str
-matrixToStr = \matrix ->
-    List.map matrix (\line -> Str.joinWith line "")
-        |> Str.joinWith "\n"
-
-# equals : a -> (a -> Bool) where a implements Eq
-# equals = \a -> \b -> a == b
-
 RelativePosition : [Top, Bottom, Left, Right]
 
 Relative a : {position: RelativePosition, value: a}
@@ -154,7 +110,7 @@ nextPoints : Matrix a, Point ->
         goRight: MaybeRelativePoint,
     }
 nextPoints = \matrix, {x, y} ->
-    matrixLength = matrixLen matrix
+    matrixLength = Matrix.len matrix
     matrixLast = {x: matrixLength.x - 1, y: matrixLength.y - 1}
     goTop = if y > 0 
         then Ok {position: Top, value: {x, y: y - 1}}
@@ -190,14 +146,14 @@ nextRelativePoint = \matrix, {position, value}, pipe ->
 
 nextPipe : Matrix Pipe, Relative Point -> Result (Relative Point) [CulDeSac]
 nextPipe = \matrix, current ->
-    matrixGet matrix current.value
+    Matrix.get matrix current.value
         |> Result.mapErr (\_ -> CulDeSac)
         |> Result.try \currentPipe ->
             nextRelativePoint matrix current currentPipe
     
 isViablePath : Matrix Pipe, Relative Point -> Bool
 isViablePath = \matrix, relativePoint ->
-    isViable = matrixGet matrix relativePoint.value |> Result.try \pipe ->
+    isViable = Matrix.get matrix relativePoint.value |> Result.try \pipe ->
         nextRelativePoint matrix relativePoint pipe
     Result.isOk isViable
 
@@ -209,7 +165,7 @@ findFirstPath = \matrix, startingPoint ->
 
 isStart : Matrix Pipe, Relative Point -> Bool
 isStart = \matrix, {value} ->
-    matrixGet matrix value
+    Matrix.get matrix value
         |> Result.map \pipe -> pipe == Start
         |> Result.withDefault Bool.false
 
@@ -229,14 +185,14 @@ main =
 
     maybePath : Result (List Point) [NotFound]
     maybePath = (
-        startPosition <- matrixFindFirstIndex matrix (\elem -> elem == Start) |> Result.try
+        startPosition <- Matrix.findFirstIndex matrix (\elem -> elem == Start) |> Result.try
         firstRelativePoint <- findFirstPath matrix startPosition |> Result.map
         pathPoints = path matrix [firstRelativePoint.value] firstRelativePoint
         pathPoints
     )
     
     pointsInPath = Result.withDefault maybePath []
-    cleanMatrix = matrixMapWithIndex matrix \pipe, point -> 
+    cleanMatrix = Matrix.mapWithIndex matrix \pipe, point -> 
         if List.contains pointsInPath point
             then if pipe == Start
                 then BottomLeft # Hardcoded replacement for our specific input.
