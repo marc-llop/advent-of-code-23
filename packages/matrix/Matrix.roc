@@ -121,6 +121,18 @@ transpose = \matrix ->
                 Ok column -> List.append newMatrix column
                 Err _ -> newMatrix
 
+# Inlined from ResultExtra
+resultMap2 : (a, b -> c), Result a err, Result b err -> Result c err
+resultMap2 = \fn, resA, resB ->
+    a <- Result.try resA
+    b <- Result.map resB
+    fn a b
+
+# Inlined from ResultExtra
+resultSequence : List (Result a b) -> Result (List a) b
+resultSequence = \list ->
+    List.walk list (Ok []) (\acc, elem -> resultMap2 List.append acc elem)
+
 walkColumnsWithIndex : Matrix elem, state, (state, List elem, Nat -> state) -> state
 walkColumnsWithIndex = \matrix, state, fn ->
     List.get matrix 0
