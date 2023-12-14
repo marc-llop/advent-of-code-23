@@ -3,7 +3,7 @@ app "hello"
         cli: "https://github.com/roc-lang/basic-cli/releases/download/0.5.0/Cufzl36_SnJ4QbOoEmiJ5dIpUxBvdB3NEySvuH82Wio.tar.br",
         matrix: "../packages/matrix/main.roc",
     }
-    imports [cli.Stdout, "input.txt" as input : Str, matrix.Matrix]
+    imports [cli.Stdout, "test.txt" as input : Str, matrix.Matrix.{Matrix}, cli.Task]
     provides [main] to cli
 
 #   X987654321
@@ -41,8 +41,15 @@ weightMatrix = \matrix ->
     List.map matrix weightRow
         |> List.sum
 
+printMatrix = \matrix ->
+    _ <- Matrix.toStr matrix
+        |> Stdout.line
+        |> Task.await
+    Stdout.line ""
+
 main =
     matrix = parseMatrix input
-    _ = weightRow (List.get matrix 0 |> Result.withDefault [])
-    # dbg List.get matrix 0
-    Stdout.line (weightMatrix matrix |> Num.toStr)
+    _ <- Task.await (printMatrix matrix)
+    Matrix.turnRight matrix
+        |> printMatrix
+    # Stdout.line (weightMatrix matrix |> Num.toStr)

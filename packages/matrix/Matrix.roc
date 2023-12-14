@@ -7,12 +7,15 @@ interface Matrix
         len,
         map,
         mapWithIndex,
+        walk,
+        walkWithIndex,
         toStr,
         cardinalAdjacentPoints,
         manhattanDistance,
         cartesianProduct,
         walkColumn,
         transpose,
+        turnRight,
         walkColumnsWithIndex,
         getColumn,
         allColumn,
@@ -132,6 +135,17 @@ resultMap2 = \fn, resA, resB ->
 resultSequence : List (Result a b) -> Result (List a) b
 resultSequence = \list ->
     List.walk list (Ok []) (\acc, elem -> resultMap2 List.append acc elem)
+
+turnRight : Matrix elem -> Matrix elem
+turnRight = \matrix ->
+    length = len matrix
+    newMatrix = List.repeat (List.repeat (Err Nothing) length.y) length.x
+    filledMatrix = mapWithIndex newMatrix \_, {x, y} ->
+        get matrix {x: y, y: length.x - x - 1}
+    List.map filledMatrix resultSequence
+        |> resultSequence
+        |> Result.withDefault []
+
 
 walkColumnsWithIndex : Matrix elem, state, (state, List elem, Nat -> state) -> state
 walkColumnsWithIndex = \matrix, state, fn ->
