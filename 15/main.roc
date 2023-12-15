@@ -3,7 +3,7 @@ app "hello"
         cli: "https://github.com/roc-lang/basic-cli/releases/download/0.5.0/Cufzl36_SnJ4QbOoEmiJ5dIpUxBvdB3NEySvuH82Wio.tar.br",
         parser: "../packages/roc-parser/package/main.roc",
     }
-    imports [cli.Stdout, cli.Task, "test.txt" as input : Str, parser.Core.{const, keep, skip, chompUntil, oneOf, map, flatten}, parser.String.{parseStr, digit, string}]
+    imports [cli.Stdout, cli.Task, "input.txt" as input : Str, parser.Core.{const, keep, skip, chompUntil, oneOf, map, flatten}, parser.String.{parseStr, digit, string}]
     provides [main] to cli
 
 Label : Str
@@ -105,7 +105,7 @@ performStep = \boxes, step ->
             Present box -> Present (operation box)
             Missing -> Present (operation newBox)
 
-# initializationSequence : List Step -> List (Nat, LensBox)
+initializationSequence : List Step -> List (Nat, LensBox)
 initializationSequence = \steps ->
     boxes = Dict.empty {}
     List.walk steps boxes performStep
@@ -123,6 +123,15 @@ debug = \steps ->
             newBoxes
         )
 
+lensFocusingPower : Nat -> (Lens, Nat -> Nat)
+lensFocusingPower = \box -> \{focalLength, label}, index ->
+    (box + 1) * (index + 1) * focalLength
+
+boxFocusingPower : (Nat, LensBox) -> Nat
+boxFocusingPower = \(boxNum, (_, lenses)) ->
+    List.mapWithIndex lenses (lensFocusingPower boxNum)
+        |> List.sum
+
 boxesToStr : Dict Nat LensBox -> Str
 boxesToStr = \boxes ->
     Dict.toList boxes
@@ -131,10 +140,8 @@ boxesToStr = \boxes ->
 
 main =
     steps = parseInput input
-    (task, boxes) = debug steps
-    task
-    # box = insertLens newBox {label: "cs", focalLength: 7}
-    #     |> insertLens {label: "cs", focalLength: 5}
-    #     |> insertLens {label: "ab", focalLength: 2}
-    # dbg box
-    # Stdout.line "hi"
+    boxes = initializationSequence steps
+    List.map boxes boxFocusingPower
+        |> List.sum
+        |> Num.toStr
+        |> Stdout.line
