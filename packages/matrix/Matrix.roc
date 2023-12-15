@@ -4,6 +4,7 @@ interface Matrix
         Matrix,
         findFirstIndex,
         get,
+        set,
         len,
         map,
         mapWithIndex,
@@ -16,8 +17,10 @@ interface Matrix
         walkColumn,
         transpose,
         turnRight,
+        mapColumnsWithIndex,
         walkColumnsWithIndex,
         getColumn,
+        setColumn,
         allColumn,
         anyColumn,
     ]
@@ -43,6 +46,11 @@ get = \matrix, {x, y} ->
     Result.try lres (\line ->
         List.get line x |> Result.mapErr \_ -> OutOfBounds)
         |> Result.mapErr \_ -> OutOfBounds
+
+set : Matrix a, Point, a -> Matrix a
+set = \matrix, {x, y}, elem ->
+    List.update matrix y \row ->
+        List.set row x elem
 
 len : Matrix a -> Point
 len = \matrix ->
@@ -147,6 +155,15 @@ turnRight = \matrix ->
         |> Result.withDefault []
 
 
+mapColumnsWithIndex : Matrix elem, (List elem, Nat -> List elem) -> Matrix elem
+mapColumnsWithIndex = \matrix, fn ->
+    List.get matrix 0
+        |> Result.withDefault []
+        |> List.walkWithIndex matrix \newMatrix, _, x ->
+            when getColumn matrix x is
+                Err _ -> newMatrix
+                Ok column -> setColumn newMatrix x (fn column x)
+
 walkColumnsWithIndex : Matrix elem, state, (state, List elem, Nat -> state) -> state
 walkColumnsWithIndex = \matrix, state, fn ->
     List.get matrix 0
@@ -159,6 +176,11 @@ walkColumnsWithIndex = \matrix, state, fn ->
 getColumn : Matrix elem, Nat -> Result (List elem) [OutOfBounds]
 getColumn = \matrix, columnIndex ->
     walkColumn matrix columnIndex [] \column, elem -> List.append column elem
+
+setColumn : Matrix elem, Nat, List elem -> Matrix elem
+setColumn = \matrix, x, column ->
+    List.walkWithIndex column matrix \newMatrix, elem, y ->
+        set newMatrix {x, y} elem
 
 allColumn : Matrix elem, Nat, (elem -> Bool) -> Bool
 allColumn = \matrix, column, predicate ->
