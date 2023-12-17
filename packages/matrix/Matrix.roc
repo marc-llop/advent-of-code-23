@@ -1,3 +1,5 @@
+## # Matrix
+## A common set of utility functions to deal with Lists of Lists.
 interface Matrix
     exposes [
         Point,
@@ -5,8 +7,10 @@ interface Matrix
         findFirstIndex,
         get,
         set,
+        update,
         len,
         map,
+        map2,
         mapWithIndex,
         walk,
         walkWithIndex,
@@ -14,6 +18,7 @@ interface Matrix
         cardinalAdjacentPoints,
         manhattanDistance,
         cartesianProduct,
+        countIf,
         walkColumn,
         transpose,
         turnRight,
@@ -26,12 +31,16 @@ interface Matrix
     ]
     imports []
 
-
+## A bidimensional coordinate. It can represent a point in a bidimensional structure
+## or also a bidimensional size. It can be OutOfBounds.
 Point : {x: Nat, y: Nat}
 
+## A List of Lists. Alias provided for convenience.
 Matrix a : List (List a)
 
-
+## Returns the first point, in latin reading order (left to right and then top to bottom),
+## at which the first element that satisfies a predicate can be found.
+## If no satisfying element is found, an `Err NotFound` is returned.
 findFirstIndex : Matrix elem, (elem -> Bool) -> Result Point [NotFound]
 findFirstIndex = \matrix, predicate ->
     List.walkWithIndex matrix (Err NotFound) \found, line, y ->
@@ -40,6 +49,8 @@ findFirstIndex = \matrix, predicate ->
             else List.findFirstIndex line predicate
                 |> Result.map \x -> {x, y}
 
+## Returns an element from a matrix at the given point.
+## Returns `Err OutOfBounds` if the given point exceeds the matrix's length in any dimension.
 get : Matrix a, Point -> Result a [OutOfBounds]
 get = \matrix, {x, y} ->
     lres = List.get matrix y
@@ -47,10 +58,21 @@ get = \matrix, {x, y} ->
         List.get line x |> Result.mapErr \_ -> OutOfBounds)
         |> Result.mapErr \_ -> OutOfBounds
 
+## Replaces the element at the given point with a replacement.
+## ```
+## Matrix.set [["a", "b"], ["c", "d"]] {x: 0, y: 1} "B"
+## ```
+## If the given point is outside the bounds of the matrix, returns the original matrix unmodified.
 set : Matrix a, Point, a -> Matrix a
 set = \matrix, {x, y}, elem ->
     List.update matrix y \row ->
         List.set row x elem
+
+## 
+update : Matrix a, Point, (a -> a) -> Matrix a
+update = \matrix, {x, y}, fn ->
+    List.update matrix y \row ->
+        List.update row x fn
 
 len : Matrix a -> Point
 len = \matrix ->
@@ -62,6 +84,11 @@ map : Matrix a, (a -> b) -> Matrix b
 map = \matrix, fn ->
     List.map matrix \line ->
         List.map line fn
+
+map2 : Matrix a, Matrix b, (a, b -> c) -> Matrix c
+map2 = \a, b, fn ->
+    List.map2 a b \lineA, lineB ->
+        List.map2 lineA lineB fn
 
 mapWithIndex : Matrix a, (a, Point -> b) -> Matrix b
 mapWithIndex = \matrix, fn ->
@@ -116,6 +143,11 @@ cartesianProduct : List a, List b -> List (a, b)
 cartesianProduct = \xs, ys ->
     List.joinMap xs \x ->
         List.map ys \y -> (x, y)
+
+countIf : Matrix a, (a -> Bool) -> Nat
+countIf = \matrix, predicate ->
+    List.map matrix (\line -> List.countIf line predicate)
+        |> List.sum
 
 walkColumn : Matrix elem, Nat, state, (state, elem -> state) -> Result state [OutOfBounds]
 walkColumn = \matrix, column, state, fn ->
