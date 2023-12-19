@@ -32,11 +32,6 @@ energizeTile = \matrix, point, direction ->
     Matrix.update matrix point \directions ->
         Set.insert directions direction
 
-
-joinHistories : TileHistory, TileHistory -> TileHistory
-joinHistories = \a, b ->
-    Set.union a b
-
 isEnergized : TileHistory -> Bool
 isEnergized = \directions -> !(Set.isEmpty directions)
 
@@ -57,31 +52,33 @@ nextDirection = \tile, direction ->
         "." -> direction
         _ -> direction
 
-energizeRegardlessOfHistory : Matrix Str, Matrix TileHistory, Direction, Point -> Matrix TileHistory
-energizeRegardlessOfHistory = \matrix, history, direction, point ->
+energizeRegardlessOfHistory : Matrix Str, Matrix TileHistory, Direction, Point, Str -> Matrix TileHistory
+energizeRegardlessOfHistory = \matrix, history, direction, point, tile ->
     # dbg (direction, point)
     newHistory = energizeTile history point direction
-    continue = \newDirection ->
+    continue = \newDirection, nextHistory ->
         # dbg (point, newDirection)
         when nextPoint newDirection point is
-            Ok newPoint -> energize matrix newHistory newDirection newPoint
-            Err _ -> newHistory
+            Ok newPoint -> energize matrix nextHistory newDirection newPoint
+            Err _ -> nextHistory
     continueStraight = \_ ->
         when nextPoint direction point is
             Ok newPoint -> energize matrix newHistory direction newPoint
             Err _ -> newHistory
 
-    maybeTile = Matrix.get matrix point
-    when maybeTile is
-        Err _ -> history
-        Ok "|" -> when direction is
+    when tile is
+        "|" -> when direction is
             Up | Down -> continueStraight {}
-            Left | Right -> Matrix.map2 (continue Up) (continue Down) joinHistories
-        Ok "-" -> when direction is
-            Up | Down -> Matrix.map2 (continue Left) (continue Right) joinHistories
+            Left | Right -> 
+                historyAfterOneDirection = continue Up newHistory
+                continue Down historyAfterOneDirection
+        "-" -> when direction is
+            Up | Down -> 
+                historyAfterOneDirection = continue Left newHistory
+                continue Right historyAfterOneDirection
             Left | Right -> continueStraight {}
-        Ok "." -> continueStraight {}
-        Ok mirror -> continue (nextDirection mirror direction)
+        "." -> continueStraight {}
+        mirror -> continue (nextDirection mirror direction) newHistory
 
 reverseDirection : Direction -> Direction
 reverseDirection = \direction ->
@@ -93,27 +90,25 @@ reverseDirection = \direction ->
 
 energize : Matrix Str, Matrix TileHistory, Direction, Point -> Matrix TileHistory
 energize = \matrix, history, direction, point ->
-    maybeTile = Matrix.get matrix point
-    maybeTileHistory = Matrix.get history point
-    when (maybeTile, maybeTileHistory) is
-        (Ok tile, Ok tileHistory) ->
-            splittedBefore = when tile is
-                "|" | "-" -> isEnergized tileHistory
-                _ -> Bool.false
+    result =
+        tile <- Matrix.get matrix point |> Result.try
+        tileHistory <- Matrix.get history point |> Result.try
+        tileContains = \dir -> Set.contains tileHistory dir
+        compute = \_ -> energizeRegardlessOfHistory matrix history direction point tile
+        when tile is
+            "." -> if tileContains direction || tileContains (reverseDirection direction)
+                then Err Break
+                else Ok (compute {})
 
-            cameFromThere = when tile is
-                "/" | "\\" | "." -> Set.contains tileHistory (nextDirection tile direction |> reverseDirection)
-                _ -> Bool.false
+            "|" | "-" -> if isEnergized tileHistory
+                then Err Break
+                else Ok (compute {})
 
-            passedHereInTheSameDirection = Set.contains tileHistory direction
-
-            beenThereDoneThat = splittedBefore || cameFromThere || passedHereInTheSameDirection
-
-            if beenThereDoneThat
-                then history
-                else energizeRegardlessOfHistory matrix history direction point
+            _ -> if tileContains direction || tileContains (nextDirection tile direction |> reverseDirection)
+                then Err Break
+                else Ok (compute {})
             
-        _ -> history
+        Result.withDefault result history
 
 initialHistory = \matrix ->
     length = Matrix.len matrix
